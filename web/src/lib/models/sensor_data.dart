@@ -8,12 +8,10 @@ class SensorSeries {
   /// Creates a SensorSeries instance from a JSON object.
   factory SensorSeries.fromJson(Map<String, dynamic> json) {
     var valuesList = json['values'] as List;
-    List<SensorValue> sensorValues =
-        valuesList.map((i) => SensorValue.fromJson(i)).toList();
-    return SensorSeries(
-      name: json['name'],
-      values: sensorValues,
-    );
+    List<SensorValue> sensorValues = valuesList
+        .map((i) => SensorValue.fromJson(i))
+        .toList();
+    return SensorSeries(name: json['name'], values: sensorValues);
   }
 }
 
@@ -29,7 +27,10 @@ class SensorValue {
     return SensorValue(
       // CORRECTED: The server sends milliseconds (13 digits), so we use it directly.
       // Previously, we were multiplying by 1000, which caused incorrect dates.
-      timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp']),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        json['timestamp'],
+        isUtc: true,
+      ),
       value: (json['value'] as num).toDouble(),
     );
   }

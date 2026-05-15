@@ -11,7 +11,6 @@ import 'package:sensor_dashboard/widgets/map_view.dart';
 /// The main page that manages the two-column layout
 /// and navigation between the map and the sensor dashboard.
 class MainLayoutPage extends StatefulWidget {
-  // CORRECTED: Removed the username parameter.
   const MainLayoutPage({super.key});
 
   @override
@@ -26,6 +25,9 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   InitialSensorData? _initialSensorData;
   Probe? _selectedProbe;
   bool _isLoadingProbeData = false;
+  
+  // State to toggle the visibility of the sidebar
+  bool _showSidebar = true;
 
   @override
   void initState() {
@@ -35,7 +37,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
 
   void _loadProbes() {
     setState(() {
-      _probesFuture = _apiService.getProbes();
+       _probesFuture = _apiService.getProbes();
     });
   }
 
@@ -53,9 +55,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
 
     try {
       // Use the probe's ID as the practiceId parameter
-      final initialData = await _apiService.getLatestSensorData(
-        practiceId: probe.id.toString(),
-      );
+      final initialData = await _apiService.getLatestSensorData(practiceId: probe.id.toString());
       if (mounted) {
         setState(() {
           _initialSensorData = initialData;
@@ -63,20 +63,19 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
         });
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingProbeData = false;
-        });
-        // Show an error message if the initial data fetch fails
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading initial data: ${e.message}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+       if (mounted) {
+         setState(() { _isLoadingProbeData = false; });
+         // Show an error message if the initial data fetch fails
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text('Error loading initial data: ${e.message}'),
+             backgroundColor: Colors.red,
+           ),
+         );
+       }
     }
   }
+
 
   void _handleBackToMap() {
     setState(() {
@@ -84,7 +83,7 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
       _initialSensorData = null;
     });
   }
-
+  
   Future<void> _logout() async {
     try {
       await _apiService.logout();
@@ -99,11 +98,21 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // CORRECTED: The title is now generic.
+        // Toggle Sidebar Button
+        leading: IconButton(
+          icon: Icon(_showSidebar ? Icons.menu_open : Icons.menu),
+          tooltip: _showSidebar ? "Hide Probe List" : "Show Probe List",
+          onPressed: () {
+            setState(() {
+              _showSidebar = !_showSidebar;
+            });
+          },
+        ),
         title: const Text('Probe Dashboard'),
         actions: [
           IconButton(
@@ -120,55 +129,48 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            final error = snapshot.error;
-            String errorMessage = 'An unexpected error occurred.';
+             final error = snapshot.error;
+             String errorMessage = 'An unexpected error occurred.';
 
-            if (error is ApiException && error.statusCode == 401) {
-              // If session expired, redirect to login
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
-                  );
-                }
-              });
-              errorMessage = 'Session expired. Redirecting to login...';
-            } else if (error is ApiException) {
-              errorMessage =
-                  'API Error (${error.statusCode}): ${error.message}';
-            } else {
-              errorMessage = error.toString();
-            }
-
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 60,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Failed to Load Data',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.headlineSmall?.copyWith(color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      errorMessage,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
+             if (error is ApiException && error.statusCode == 401) {
+                // If session expired, redirect to login
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                   if(mounted) {
+                     Navigator.of(context).pushReplacement(
+                       MaterialPageRoute(builder: (context) => const LoginPage()),
+                     );
+                   }
+                });
+                errorMessage = 'Session expired. Redirecting to login...';
+             } else if (error is ApiException) {
+                errorMessage = 'API Error (${error.statusCode}): ${error.message}';
+             } else {
+                errorMessage = error.toString();
+             }
+             
+             return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 60),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to Load Data',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
           }
           if (snapshot.hasData && snapshot.data!.isNotEmpty) {
             final macrogroups = snapshot.data!;
@@ -177,37 +179,36 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
 
             return Row(
               children: [
-                // Left Column: Probe List
-                SizedBox(
-                  width: 300,
-                  child: ListView.builder(
-                    itemCount: macrogroups.length,
-                    itemBuilder: (context, index) {
-                      final macrogroup = macrogroups[index];
-                      return ExpansionTile(
-                        title: Text(
-                          macrogroup.description,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        initiallyExpanded: true,
-                        children: macrogroup.probes.map((probe) {
-                          return ListTile(
-                            title: Text(probe.description),
-                            subtitle: Text(
-                              "ID: ${probe.id}",
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            selected: _selectedProbe?.id == probe.id,
-                            onTap: () => _handleProbeSelection(probe),
-                          );
-                        }).toList(),
-                      );
-                    },
+                // Left Column: Probe List (Conditionally visible)
+                if (_showSidebar) ...[
+                  SizedBox(
+                    width: 300,
+                    child: ListView.builder(
+                      itemCount: macrogroups.length,
+                      itemBuilder: (context, index) {
+                        final macrogroup = macrogroups[index];
+                        return ExpansionTile(
+                          title: Text(macrogroup.description, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          initiallyExpanded: true,
+                          children: macrogroup.probes.map((probe) {
+                            return ListTile(
+                              title: Text(probe.description),
+                              subtitle: Text("ID: ${probe.id}"),
+                              selected: _selectedProbe?.id == probe.id,
+                              onTap: () => _handleProbeSelection(probe),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
                   ),
+                  const VerticalDivider(width: 1),
+                ],
+                
+                // Right Column: Map or Dashboard (Expands to fill remaining space)
+                Expanded(
+                  child: _buildRightPane(allProbes),
                 ),
-                const VerticalDivider(width: 1),
-                // Right Column: Map or Dashboard
-                Expanded(child: _buildRightPane(allProbes)),
               ],
             );
           }
@@ -222,7 +223,10 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
   Widget _buildRightPane(List<Probe> allProbes) {
     if (_selectedProbe == null) {
       // No probe is selected, show the map
-      return MapView(probes: allProbes, onMarkerTap: _handleProbeSelection);
+      return MapView(
+        probes: allProbes,
+        onMarkerTap: _handleProbeSelection,
+      );
     } else if (_isLoadingProbeData) {
       // A probe is selected, but we are fetching its initial data
       return const Center(child: CircularProgressIndicator());
@@ -235,7 +239,9 @@ class _MainLayoutPageState extends State<MainLayoutPage> {
       );
     } else {
       // A probe is selected, but data fetching failed or hasn't completed
-      return const Center(child: Text("Select a probe to view its data."));
+      return const Center(
+        child: Text("Select a probe to view its data."),
+      );
     }
   }
 }
